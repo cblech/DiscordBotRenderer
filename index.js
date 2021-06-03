@@ -152,6 +152,7 @@ class Renderer {
 
         this.cube = new Object3D();
         this.camera = new Camera();
+        this.lineRenderMode = true;
 
         this.resetReactions();
 
@@ -204,6 +205,7 @@ class Renderer {
 
 
             case '🎥':
+                this.lineRenderMode = !this.lineRenderMode;
                 break;
             case '⏫':
                 this.camera.viewMat.translate(0, 0, 0.3);
@@ -255,48 +257,51 @@ class Renderer {
         let char = " ";
         for (let line of screenLines) {
             if (line.isOnLine(new gpm.Vec2(x, y))) {
-                if (Math.abs(line.to.x - line.from.x) > Math.abs(line.to.y - line.from.y) * 3) {
-                    let smallest = 1000;
-                    let d;
-                    d = line.distanceToPoint(new gpm.Vec2(x, y - 0.33));
-                    if (d < smallest) {
-                        char = "‾";
-                        smallest = d;
-                    }
-                    d = line.distanceToPoint(new gpm.Vec2(x, y));
-                    if (d < smallest) {
-                        char = "─";
-                        smallest = d;
-                    }
-                    d = line.distanceToPoint(new gpm.Vec2(x, y + 0.33));
-                    if (d < smallest) {
-                        char = "_";
-                    }
 
-                } else {
+                if (this.lineRenderMode) {
+                    if (Math.abs(line.to.x - line.from.x) > Math.abs(line.to.y - line.from.y) * 3) {
+                        let smallest = 1000;
+                        let d;
+                        d = line.distanceToPoint(new gpm.Vec2(x, y - 0.33));
+                        if (d < smallest) {
+                            char = "‾";
+                            smallest = d;
+                        }
+                        d = line.distanceToPoint(new gpm.Vec2(x, y));
+                        if (d < smallest) {
+                            char = "─";
+                            smallest = d;
+                        }
+                        d = line.distanceToPoint(new gpm.Vec2(x, y + 0.33));
+                        if (d < smallest) {
+                            char = "_";
+                        }
 
-                    let diffY = line.from.y - line.to.y;
-
-                    let diffX = line.from.x - line.to.x;
-
-                    diffX /= diffY;
-
-                    let diffXNum = remap(diffX, [-3, 3], [0, 9]);
-
-                    if (diffX < -2) {
-                        char = "⟋";
-                    } else if (diffX > 2) {
-                        char = "⟍"
-                    } else if (diffX < -0.5) {
-                        char = "/";
-                    } else if (diffX > 0.5) {
-                        char = "\\";
                     } else {
-                        char = "|";
+
+                        let diffY = line.from.y - line.to.y;
+
+                        let diffX = line.from.x - line.to.x;
+
+                        diffX /= diffY;
+
+                        let diffXNum = remap(diffX, [-3, 3], [0, 9]);
+
+                        if (diffX < -2) {
+                            char = "⟋";
+                        } else if (diffX > 2) {
+                            char = "⟍"
+                        } else if (diffX < -0.5) {
+                            char = "/";
+                        } else if (diffX > 0.5) {
+                            char = "\\";
+                        } else {
+                            char = "|";
+                        }
                     }
-
-
-
+                }
+                else {
+                    return "#";
                 }
             }
         }
