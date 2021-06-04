@@ -29,15 +29,18 @@ const remap = function (value, from, to) {
     return to[0] + (value - from[0]) * (to[1] - to[0]) / (from[1] - from[0]);
 }
 
-class Line2D {
+class Line3D {
     /**
      * 
-     * @param {gpm.Vec2} from 
-     * @param {gpm.Vec2} to 
+     * @param {gpm.Vec3} from 
+     * @param {gpm.Vec3} to 
      */
     constructor(from, to) {
-        this.from = from;
-        this.to = to;
+        this.fromZ = from.z;
+        this.toZ = to.z;
+
+        this.from = new gpm.Vec2(from.x, from.y);
+        this.to = new gpm.Vec2(to.x, to.y);
 
         this.maxDistance = 0.5000001;
     }
@@ -100,7 +103,7 @@ class Object3D {
      * 
      * @param {gpm.Matrix4} viewMat 
      * @param {gpm.Matrix4} ProjectionMat 
-     * @returns {Line2D[]}
+     * @returns {Line3D[]}
      */
     getNormalLines(viewMat, ProjectionMat) {
         /** @type {gpm.Vec3[]} */
@@ -116,7 +119,7 @@ class Object3D {
                 normalP.z / normalP.w));
         }
 
-        /** @type {Line2D[]} */
+        /** @type {Line3D[]} */
         let list = new Array();
         for (const l of this.lines) {
             let fromPoint = movedPoints[l[0]];
@@ -124,7 +127,7 @@ class Object3D {
 
 
 
-            list.push(new Line2D(new gpm.Vec2(fromPoint.x, fromPoint.y), new gpm.Vec2(toPoint.x, toPoint.y)));
+            list.push(new Line3D(fromPoint, toPoint));
         }
         return list;
     }
@@ -226,12 +229,13 @@ class Renderer {
                 this.camera.viewMat.translate(0, -0.3, 0);
                 break;
             case '❌':
-                this.remove();
+                //this.remove();
                 break;
         }
 
+        //let startTime = new Date().getTime();
         this.render();
-
+        //console.log(new Date().getTime()-startTime);
 
         reaction.users.fetch().then(
             users => users.forEach(user => {
@@ -249,17 +253,21 @@ class Renderer {
     /**
      * @param {Number} x 
      * @param {Number} y 
-     * @param {Line2D[]} screenLines 
+     * @param {Line3D[]} screenLines 
      * @returns {string}
      */
     selectCharForScreenPoint(x, y, screenLines) {
+
+        //screenLines.sort((a,b)=>{
+        //
+        //});
 
         let char = " ";
         for (let line of screenLines) {
             if (line.isOnLine(new gpm.Vec2(x, y))) {
 
                 if (this.lineRenderMode) {
-                    if (Math.abs(line.to.x - line.from.x) > Math.abs(line.to.y - line.from.y) * 3) {
+                    if (Math.abs(line.to.x - line.from.x) > Math.abs(line.to.y - line.from.y) * 2.2) {
                         let smallest = 1000;
                         let d;
                         d = line.distanceToPoint(new gpm.Vec2(x, y - 0.33));
@@ -287,30 +295,47 @@ class Renderer {
 
                         let diffXNum = remap(diffX, [-3, 3], [0, 9]);
 
-                        if (diffX < -2) {
-                            char = "⟋";
+                        /*if (diffX < -2) {
+                            char = "╱";
                         } else if (diffX > 2) {
-                            char = "⟍"
-                        } else if (diffX < -0.5) {
-                            char = "/";
+                            char = "╲"
+                        } else*/
+                        if (diffX < -0.5) {
+                            char = "╱";
                         } else if (diffX > 0.5) {
-                            char = "\\";
+                            char = "╲";
                         } else {
-                            char = "|";
+                            let smallest = 1000;
+                            let d;
+                            d = line.distanceToPoint(new gpm.Vec2(x - 0.33, y));
+                            if (d < smallest) {
+                                char = "⎸";
+                                smallest = d;
+                            }
+                            d = line.distanceToPoint(new gpm.Vec2(x, y));
+                            if (d < smallest) {
+                                char = "|";
+                                smallest = d;
+                            }
+                            d = line.distanceToPoint(new gpm.Vec2(x + 0.33, y));
+                            if (d < smallest) {
+                                char = "⎹";
+                            }
                         }
                     }
                 }
                 else {
                     return "#";
                 }
+                return char;
             }
         }
         return char;
     }
     /**
      * 
-     * @param {Line2D[]} normalLines 
-     * @returns {Line2D[]
+     * @param {Line3D[]} normalLines 
+     * @returns {Line3D[]
      */
     convertNormalLinesToScreenLines(normalLines) {
         let screenLines = new Array();
@@ -320,13 +345,15 @@ class Renderer {
 
         for (const l of normalLines) {
             screenLines.push(
-                new Line2D(
-                    new gpm.Vec2(
+                new Line3D(
+                    new gpm.Vec3(
                         remap(l.from.x, fromMap, toMapX),
-                        remap(l.from.y, fromMap, toMapY)),
-                    new gpm.Vec2(
+                        remap(l.from.y, fromMap, toMapY),
+                        l.fromZ),
+                    new gpm.Vec3(
                         remap(l.to.x, fromMap, toMapX),
-                        remap(l.to.y, fromMap, toMapY))
+                        remap(l.to.y, fromMap, toMapY),
+                        l.toZ)
                 ));
         }
 
@@ -336,27 +363,27 @@ class Renderer {
     render() {
         let normalLines = this.cube.getNormalLines(this.camera.viewMat, this.camera.projectionMat);
 
-        let debugLines = [
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.9, -0.9)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.9, -0.9)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.8, -0.7)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.8, -0.7)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.7, -0.5)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.7, -0.5)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.6, -0.3)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.6, -0.3)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.5, -0.1)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.5, -0.1)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.4, 0.1)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.4, 0.1)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.3, 0.3)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.3, 0.3)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.2, 0.5)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.2, 0.5)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.1, 0.7)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.1, 0.7)),
-            new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.0, 0.9)),
-        ]
+        //let debugLines = [
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.9, -0.9)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.9, -0.9)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.8, -0.7)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.8, -0.7)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.7, -0.5)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.7, -0.5)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.6, -0.3)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.6, -0.3)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.5, -0.1)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.5, -0.1)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.4, 0.1)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.4, 0.1)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.3, 0.3)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.3, 0.3)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.2, 0.5)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.2, 0.5)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(-0.1, 0.7)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.1, 0.7)),
+        //    new Line2D(new gpm.Vec2(0, -0.9), new gpm.Vec2(0.0, 0.9)),
+        //]
 
         let screenLines = this.convertNormalLinesToScreenLines(normalLines);
 
@@ -364,7 +391,7 @@ class Renderer {
     }
 
     /**
-     * @param {Line2D[]} screenLines 
+     * @param {Line3D[]} screenLines 
      */
     print(screenLines) {
         let message = "```\n";
